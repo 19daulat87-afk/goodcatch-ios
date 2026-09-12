@@ -1,0 +1,36 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const path = require('node:path');
+const root = path.join(__dirname,'..','GoodCatch');
+const events=[];
+const fileInput={disabled:false,files:[],dispatchEvent(e){events.push(e.type)}};
+let present=true;
+class Transfer {
+  files=[];
+  items={add:(f)=>this.files.push(f)};
+}
+const context=vm.createContext({window:{},document:{querySelector(){return present?fileInput:null}},File,DataTransfer:Transfer,Event,Uint8Array,Date,atob});
+const attachment=fs.readFileSync(path.join(root,'Resources','attachment.js'),'utf8');
+vm.runInContext(attachment,context);
+const api=context.window.yycAttachment;
+assert.equal(api.begin(),true);
+api.chunk(Buffer.from([0,1,255,127]).toString('base64'));
+api.chunk(Buffer.from([10,20]).toString('base64'));
+assert.equal(api.finish({name:'queued.jpg',type:'image/jpeg'}),true);
+assert.equal(fileInput.files[0].name,'queued.jpg');
+assert.equal(fileInput.files[0].size,6);
+assert.deepEqual(events,['input','change']);
+assert.equal(api.finish({name:'second.jpg',type:'image/jpeg'}),false);
+fileInput.disabled=true; assert.equal(api.begin(),false);
+fileInput.disabled=false; present=false; assert.equal(api.begin(),false);
+present=true; assert.equal(api.begin(),true); assert.equal(api.finish({name:'empty.jpg',type:'image/jpeg'}),false);
+new vm.Script(fs.readFileSync(path.join(root,'Resources','fill.js'),'utf8'));
+const model=fs.readFileSync(path.join(root,'ReportModel.swift'),'utf8');
+const fill=fs.readFileSync(path.join(root,'Resources','fill.js'),'utf8');
+assert(!/Daulat Singh|Daulasin@amazon\.com/.test(model));
+for(const key of ['site','name','email','date','location','businessUnit','businessLine','outcome','stopWork','actionResult','immediateAction','likelihood','severity','description']) assert(model.includes('"'+key+'"'));
+assert(!/\.requestSubmit\s*\(|\.submit\s*\(|KeyboardEvent/.test(model+fill+attachment));
+assert(model.includes("b.scrollIntoView({block:'center'})"));
+console.log('PASS: binary attachment assembly, filename and size, input/change events, empty/missing/disabled input rejection, no stale reuse, fill.js syntax, blank identity defaults, configurable fields, submission-call static guard.');
+console.log('These checks do not compile Swift or exercise Safari, WKWebView, a simulator, or an iPhone.');
