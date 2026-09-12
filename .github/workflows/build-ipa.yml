@@ -1,0 +1,52 @@
+name: Build unsigned iOS IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Show available Xcode versions
+        run: ls /Applications | grep Xcode
+
+      - name: Build unsigned .app for a real iPhone
+        run: |
+          xcodebuild \
+            -project GoodCatch.xcodeproj \
+            -scheme GoodCatch \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            clean build
+
+      - name: Package as unsigned .ipa
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/GoodCatch.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "Could not find built .app, listing products dir:"
+            find build/Build/Products -maxdepth 3
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -R "$APP_PATH" Payload/
+          zip -r GoodCatch-unsigned.ipa Payload
+          echo "Built IPA:"
+          ls -la GoodCatch-unsigned.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoodCatch-unsigned-ipa
+          path: GoodCatch-unsigned.ipa
